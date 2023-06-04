@@ -123,7 +123,7 @@ const Header = () => {
                 style={{ marginRight: '0.75em' }}
               />
               <div style={{ fontSize: '20px' }}>
-                <b>{systemName}</b>
+                <b>JY API</b>
               </div>
             </Menu.Item>
             <Menu.Menu position='right'>
