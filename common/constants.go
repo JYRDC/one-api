@@ -28,17 +28,17 @@ var ItemsPerPage = 10
 
 var PasswordLoginEnabled = true
 var PasswordRegisterEnabled = true
-var EmailVerificationEnabled = false
+var EmailVerificationEnabled = true
 var GitHubOAuthEnabled = false
 var WeChatAuthEnabled = false
 var TurnstileCheckEnabled = false
 var RegisterEnabled = true
 
-var SMTPServer = ""
+var SMTPServer = "smtp.qq.com"
 var SMTPPort = 587
-var SMTPAccount = ""
-var SMTPFrom = ""
-var SMTPToken = ""
+var SMTPAccount = "jy-notify@foxmail.com"
+var SMTPFrom = "jy-notify@foxmail.com"
+var SMTPToken = "nhptrdofulrrbhhi"
 
 var GitHubClientId = ""
 var GitHubClientSecret = ""
