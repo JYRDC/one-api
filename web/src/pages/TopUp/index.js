@@ -28,12 +28,12 @@ const TopUp = () => {
   };
 
   const openTopUpLink = () => {
-//     if (!topUpLink) {
-//       showError('超级管理员未设置充值链接！');
-//       return;
-//     }
-//     window.open(topUpLink, '_blank');
-    window.open('https://store.jingyan.chat//uploads/tinymce/images/gy-support.png','_blank');
+     if (!topUpLink) {
+       showError('超级管理员未设置充值链接！');
+       return;
+     }
+     window.open(topUpLink, '_blank');
+//    window.open('https://store.jingyan.chat//uploads/tinymce/images/gy-support.png','_blank');
   };
 
   const getUserQuota = async ()=>{
