@@ -154,7 +154,7 @@ const TokensTable = () => {
           icon='search'
           fluid
           iconPosition='left'
-          placeholder='搜索令牌的 ID 和名称 ...'
+          placeholder='搜索密钥的 ID 和名称 ...'
           value={searchKeyword}
           loading={searching}
           onChange={handleKeywordChange}
@@ -242,7 +242,7 @@ const TokensTable = () => {
                           if (await copy(key)) {
                             showSuccess('已复制到剪贴板！');
                           } else {
-                            showWarning('无法复制到剪贴板，请手动复制，已将令牌填入搜索框。');
+                            showWarning('无法复制到剪贴板，请手动复制，已将密钥填入搜索框。');
                             setSearchKeyword(key);
                           }
                         }}
@@ -265,7 +265,7 @@ const TokensTable = () => {
                             manageToken(token.id, 'delete', idx);
                           }}
                         >
-                          删除令牌 {token.name}
+                          删除密钥 {token.name}
                         </Button>
                       </Popup>
                       <Button
@@ -298,7 +298,7 @@ const TokensTable = () => {
           <Table.Row>
             <Table.HeaderCell colSpan='8'>
               <Button size='small' as={Link} to='/token/add' loading={loading}>
-                添加新的令牌
+                添加新的密钥
               </Button>
               <Button size='small' onClick={refresh} loading={loading}>刷新</Button>
               <Pagination
