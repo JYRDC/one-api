@@ -80,9 +80,9 @@ const EditToken = () => {
     const { success, message } = res.data;
     if (success) {
       if (isEdit) {
-        showSuccess('令牌更新成功！');
+        showSuccess('密钥更新成功！');
       } else {
-        showSuccess('令牌创建成功！');
+        showSuccess('密钥创建成功！');
         setInputs(originInputs);
       }
     } else {
@@ -93,7 +93,7 @@ const EditToken = () => {
   return (
     <>
       <Segment loading={loading}>
-        <Header as='h3'>{isEdit ? '更新令牌信息' : '创建新的令牌'}</Header>
+        <Header as='h3'>{isEdit ? '更新密钥信息' : '创建新的密钥'}</Header>
         <Form autoComplete='new-password'>
           <Form.Field>
             <Form.Input
@@ -134,7 +134,7 @@ const EditToken = () => {
               setExpiredTime(0, 0, 0, 1);
             }}>一分钟后过期</Button>
           </div>
-          <Message>注意，令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制。</Message>
+          <Message>注意，密钥的额度仅用于限制密钥本身的最大额度使用量，实际的使用受到账户的剩余额度限制。</Message>
           <Form.Field>
             <Form.Input
               label='额度'
