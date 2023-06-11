@@ -20,7 +20,7 @@ const headerButtons = [
     admin: true,
   },
   {
-    name: '令牌',
+    name: '密钥',
     to: '/token',
     icon: 'key',
   },
