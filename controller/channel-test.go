@@ -27,6 +27,8 @@ func testChannel(channel *model.Channel, request *ChatRequest) error {
 	} else {
 		if channel.Type == common.ChannelTypeCustom {
 			requestURL = channel.BaseURL
+		} else if channel.Type == common.ChannelTypeOpenAI && channel.BaseURL != "" {
+			requestURL = channel.BaseURL
 		}
 		requestURL += "/v1/chat/completions"
 	}
@@ -56,8 +58,8 @@ func testChannel(channel *model.Channel, request *ChatRequest) error {
 	if err != nil {
 		return err
 	}
-	if response.Error.Message != "" || response.Error.Code != "" {
-		return errors.New(fmt.Sprintf("type %s, code %s, message %s", response.Error.Type, response.Error.Code, response.Error.Message))
+	if response.Usage.CompletionTokens == 0 {
+		return errors.New(fmt.Sprintf("type %s, code %v, message %s", response.Error.Type, response.Error.Code, response.Error.Message))
 	}
 	return nil
 }

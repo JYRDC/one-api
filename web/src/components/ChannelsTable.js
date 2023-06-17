@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { API, showError, showInfo, showSuccess, timestamp2string } from '../helpers';
 
 import { CHANNEL_OPTIONS, ITEMS_PER_PAGE } from '../constants';
+import { renderGroup, renderNumber } from '../helpers/render';
 
 function renderTimestamp(timestamp) {
   return (
@@ -24,6 +25,22 @@ function renderType(type) {
     type2label[0] = { value: 0, text: '未知类型', color: 'grey' };
   }
   return <Label basic color={type2label[type].color}>{type2label[type].text}</Label>;
+}
+
+function renderBalance(type, balance) {
+  switch (type) {
+    case 1: // OpenAI
+    case 8: // 自定义
+      return <span>${balance.toFixed(2)}</span>;
+    case 5: // OpenAI-SB
+      return <span>¥{(balance / 10000).toFixed(2)}</span>;
+    case 10: // AI Proxy
+      return <span>{renderNumber(balance)}</span>;
+    case 12: // API2GPT
+      return <span>¥{balance.toFixed(2)}</span>;
+    default:
+      return <span>不支持</span>;
+  }
 }
 
 const ChannelsTable = () => {
@@ -231,15 +248,6 @@ const ChannelsTable = () => {
     setLoading(false);
   };
 
-  const renderModels = (modelString) => {
-    let models = modelString.split(",");
-    return models.map((model) => (
-        <Label>
-          {model}
-        </Label>
-    ))
-  }
-
   return (
     <>
       <Form onSubmit={searchChannels}>
@@ -276,6 +284,14 @@ const ChannelsTable = () => {
             <Table.HeaderCell
               style={{ cursor: 'pointer' }}
               onClick={() => {
+                sortChannel('group');
+              }}
+            >
+              分组
+            </Table.HeaderCell>
+            <Table.HeaderCell
+              style={{ cursor: 'pointer' }}
+              onClick={() => {
                 sortChannel('type');
               }}
             >
@@ -296,9 +312,6 @@ const ChannelsTable = () => {
               }}
             >
               响应时间
-            </Table.HeaderCell>
-            <Table.HeaderCell>
-              支持的模型
             </Table.HeaderCell>
             <Table.HeaderCell
               style={{ cursor: 'pointer' }}
@@ -324,6 +337,7 @@ const ChannelsTable = () => {
                 <Table.Row key={channel.id}>
                   <Table.Cell>{channel.id}</Table.Cell>
                   <Table.Cell>{channel.name ? channel.name : '无'}</Table.Cell>
+                  <Table.Cell>{renderGroup(channel.group)}</Table.Cell>
                   <Table.Cell>{renderType(channel.type)}</Table.Cell>
                   <Table.Cell>{renderStatus(channel.status)}</Table.Cell>
                   <Table.Cell>
@@ -335,14 +349,10 @@ const ChannelsTable = () => {
                     />
                   </Table.Cell>
                   <Table.Cell>
-                    {channel.models.length > 0 ? renderModels(channel.models) :<Label>无</Label>
-                    }
-                  </Table.Cell>
-                  <Table.Cell>
                     <Popup
                       content={channel.balance_updated_time ? renderTimestamp(channel.balance_updated_time) : '未更新'}
                       key={channel.id}
-                      trigger={<span>${channel.balance.toFixed(2)}</span>}
+                      trigger={renderBalance(channel.type, channel.balance)}
                       basic
                     />
                   </Table.Cell>
@@ -414,14 +424,15 @@ const ChannelsTable = () => {
 
         <Table.Footer>
           <Table.Row>
-            <Table.HeaderCell colSpan='7'>
+            <Table.HeaderCell colSpan='8'>
               <Button size='small' as={Link} to='/channel/add' loading={loading}>
                 添加新的渠道
               </Button>
               <Button size='small' loading={loading} onClick={testAllChannels}>
                 测试所有已启用通道
               </Button>
-              <Button size='small' onClick={updateAllChannelsBalance} loading={loading || updatingBalance}>更新所有已启用通道余额</Button>
+              <Button size='small' onClick={updateAllChannelsBalance}
+                      loading={loading || updatingBalance}>更新所有已启用通道余额</Button>
               <Pagination
                 floated='right'
                 activePage={activePage}

@@ -30,9 +30,11 @@ const SystemSetting = () => {
     QuotaRemindThreshold: 0,
     PreConsumedQuota: 0,
     ModelRatio: '',
+    GroupRatio: '',
     TopUpLink: '',
     AutomaticDisableChannelEnabled: '',
     ChannelDisableThreshold: 0,
+    LogConsumeEnabled: '',
   });
   const [originInputs, setOriginInputs] = useState({});
   let [loading, setLoading] = useState(false);
@@ -67,6 +69,7 @@ const SystemSetting = () => {
       case 'TurnstileCheckEnabled':
       case 'RegisterEnabled':
       case 'AutomaticDisableChannelEnabled':
+      case 'LogConsumeEnabled':
         value = inputs[key] === 'true' ? 'false' : 'true';
         break;
       default:
@@ -101,6 +104,7 @@ const SystemSetting = () => {
       name === 'QuotaRemindThreshold' ||
       name === 'PreConsumedQuota' ||
       name === 'ModelRatio' ||
+      name === 'GroupRatio' ||
       name === 'TopUpLink'
     ) {
       setInputs((inputs) => ({ ...inputs, [name]: value }));
@@ -130,6 +134,13 @@ const SystemSetting = () => {
         return;
       }
       await updateOption('ModelRatio', inputs.ModelRatio);
+    }
+    if (originInputs['GroupRatio'] !== inputs.GroupRatio) {
+      if (!verifyJSON(inputs.GroupRatio)) {
+        showError('分组倍率不是合法的 JSON 字符串');
+        return;
+      }
+      await updateOption('GroupRatio', inputs.GroupRatio);
     }
     if (originInputs['TopUpLink'] !== inputs.TopUpLink) {
       await updateOption('TopUpLink', inputs.TopUpLink);
@@ -329,6 +340,23 @@ const SystemSetting = () => {
               placeholder='为一个 JSON 文本，键为模型名称，值为倍率'
             />
           </Form.Group>
+          <Form.Group widths='equal'>
+            <Form.TextArea
+              label='分组倍率'
+              name='GroupRatio'
+              onChange={handleInputChange}
+              style={{ minHeight: 250, fontFamily: 'JetBrains Mono, Consolas' }}
+              autoComplete='new-password'
+              value={inputs.GroupRatio}
+              placeholder='为一个 JSON 文本，键为分组名称，值为倍率'
+            />
+          </Form.Group>
+          <Form.Checkbox
+            checked={inputs.LogConsumeEnabled === 'true'}
+            label='启用额度消费日志记录'
+            name='LogConsumeEnabled'
+            onChange={handleInputChange}
+          />
           <Form.Button onClick={submitOperationConfig}>保存运营设置</Form.Button>
           <Divider />
           <Header as='h3'>

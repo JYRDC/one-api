@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { API, showError, showSuccess } from '../helpers';
 
 import { ITEMS_PER_PAGE } from '../constants';
-import { renderText } from '../helpers/render';
+import { renderGroup, renderNumber, renderText } from '../helpers/render';
 
 function renderRole(role) {
   switch (role) {
@@ -178,6 +178,14 @@ const UsersTable = () => {
             <Table.HeaderCell
               style={{ cursor: 'pointer' }}
               onClick={() => {
+                sortUser('group');
+              }}
+            >
+              分组
+            </Table.HeaderCell>
+            <Table.HeaderCell
+              style={{ cursor: 'pointer' }}
+              onClick={() => {
                 sortUser('email');
               }}
             >
@@ -189,7 +197,7 @@ const UsersTable = () => {
                 sortUser('quota');
               }}
             >
-              剩余额度
+              统计信息
             </Table.HeaderCell>
             <Table.HeaderCell
               style={{ cursor: 'pointer' }}
@@ -231,8 +239,13 @@ const UsersTable = () => {
                       hoverable
                     />
                   </Table.Cell>
+                  <Table.Cell>{renderGroup(user.group)}</Table.Cell>
                   <Table.Cell>{user.email ? renderText(user.email, 30) : '无'}</Table.Cell>
-                  <Table.Cell>{user.quota}</Table.Cell>
+                  <Table.Cell>
+                    <Popup content='剩余额度' trigger={<Label>{renderNumber(user.quota)}</Label>} />
+                    <Popup content='已用额度' trigger={<Label>{renderNumber(user.used_quota)}</Label>} />
+                    <Popup content='请求次数' trigger={<Label>{renderNumber(user.request_count)}</Label>} />
+                  </Table.Cell>
                   <Table.Cell>{renderRole(user.role)}</Table.Cell>
                   <Table.Cell>{renderStatus(user.status)}</Table.Cell>
                   <Table.Cell>
@@ -293,7 +306,6 @@ const UsersTable = () => {
                         size={'small'}
                         as={Link}
                         to={'/user/edit/' + user.id}
-                        disabled={user.role === 100}
                       >
                         编辑
                       </Button>
@@ -306,7 +318,7 @@ const UsersTable = () => {
 
         <Table.Footer>
           <Table.Row>
-            <Table.HeaderCell colSpan='7'>
+            <Table.HeaderCell colSpan='8'>
               <Button size='small' as={Link} to='/user/add' loading={loading}>
                 添加新的用户
               </Button>

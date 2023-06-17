@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Header, Message, Segment } from 'semantic-ui-react';
 import { useParams } from 'react-router-dom';
-import { API, showError, showSuccess } from '../../helpers';
+import { API, showError, showInfo, showSuccess } from '../../helpers';
 import { CHANNEL_OPTIONS } from '../../constants';
 
 const EditChannel = () => {
@@ -16,11 +16,15 @@ const EditChannel = () => {
     base_url: '',
     other: '',
     models: [],
+    groups: ['default']
   };
   const [batch, setBatch] = useState(false);
   const [inputs, setInputs] = useState(originInputs);
+  const [modelOptions, setModelOptions] = useState([]);
+  const [groupOptions, setGroupOptions] = useState([]);
+  const [basicModels, setBasicModels] = useState([]);
+  const [fullModels, setFullModels] = useState([]);
   const handleInputChange = (e, { name, value }) => {
-    console.log(name, value);
     setInputs((inputs) => ({ ...inputs, [name]: value }));
   };
 
@@ -33,20 +37,59 @@ const EditChannel = () => {
       } else {
         data.models = data.models.split(",")
       }
+      if (data.group === "") {
+        data.groups = []
+      } else {
+        data.groups = data.group.split(",")
+      }
       setInputs(data);
     } else {
       showError(message);
     }
     setLoading(false);
   };
+
+  const fetchModels = async () => {
+    try {
+      let res = await API.get(`/api/channel/models`);
+      setModelOptions(res.data.data.map((model) => ({
+        key: model.id,
+        text: model.id,
+        value: model.id,
+      })));
+      setFullModels(res.data.data.map((model) => model.id));
+      setBasicModels(res.data.data.filter((model) => !model.id.startsWith("gpt-4")).map((model) => model.id));
+    } catch (error) {
+      showError(error.message);
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      let res = await API.get(`/api/group/`);
+      setGroupOptions(res.data.data.map((group) => ({
+        key: group,
+        text: group,
+        value: group,
+      })));
+    } catch (error) {
+      showError(error.message);
+    }
+  };
+
   useEffect(() => {
     if (isEdit) {
       loadChannel().then();
     }
+    fetchModels().then();
+    fetchGroups().then();
   }, []);
 
   const submit = async () => {
-    if (!isEdit && (inputs.name === '' || inputs.key === '')) return;
+    if (!isEdit && (inputs.name === '' || inputs.key === '')) {
+      showInfo('请填写渠道名称和渠道密钥！');
+      return;
+    }
     let localInputs = inputs;
     if (localInputs.base_url.endsWith('/')) {
       localInputs.base_url = localInputs.base_url.slice(0, localInputs.base_url.length - 1);
@@ -56,6 +99,7 @@ const EditChannel = () => {
     }
     let res;
     localInputs.models = localInputs.models.join(",")
+    localInputs.group = localInputs.groups.join(",")
     if (isEdit) {
       res = await API.put(`/api/channel/`, { ...localInputs, id: parseInt(channelId) });
     } else {
@@ -73,25 +117,6 @@ const EditChannel = () => {
       showError(message);
     }
   };
-
-  const [modelOptions, setModelOptions] = useState([]);
-
-  useEffect(() => {
-    const getModels = async () => {
-      try {
-        let res = await API.get(`/api/channel/models`);
-        setModelOptions(res.data.data.map((model) => ({
-          key: model.id,
-          text: model.id,
-          value: model.id,
-        })));
-      } catch (error) {
-        console.error('Error fetching models:', error);
-      }
-    };
-
-    getModels();
-  }, []);
 
   return (
     <>
@@ -164,17 +189,56 @@ const EditChannel = () => {
           </Form.Field>
           <Form.Field>
             <Form.Dropdown
-                label='支持的模型'
-                name='models'
-                fluid
-                multiple
-                selection
-                onChange={handleInputChange}
-                value={inputs.models}
-                autoComplete='new-password'
-                options={modelOptions}
+              label='分组'
+              placeholder={'请选择分组'}
+              name='groups'
+              fluid
+              multiple
+              selection
+              allowAdditions
+              additionLabel={'请在系统设置页面编辑分组倍率以添加新的分组：'}
+              onChange={handleInputChange}
+              value={inputs.groups}
+              autoComplete='new-password'
+              options={groupOptions}
             />
           </Form.Field>
+          <Form.Field>
+            <Form.Dropdown
+              label='模型'
+              placeholder={'请选择该通道所支持的模型'}
+              name='models'
+              fluid
+              multiple
+              selection
+              onChange={handleInputChange}
+              value={inputs.models}
+              autoComplete='new-password'
+              options={modelOptions}
+            />
+          </Form.Field>
+          <div style={{ lineHeight: '40px', marginBottom: '12px'}}>
+            <Button type={'button'} onClick={() => {
+              handleInputChange(null, { name: 'models', value: basicModels });
+            }}>填入基础模型</Button>
+            <Button type={'button'} onClick={() => {
+              handleInputChange(null, { name: 'models', value: fullModels });
+            }}>填入所有模型</Button>
+          </div>
+          {
+            inputs.type === 1 && (
+              <Form.Field>
+                <Form.Input
+                  label='代理'
+                  name='base_url'
+                  placeholder={'请输入 OpenAI API 代理地址，如果不需要请留空，格式为：https://api.openai.com'}
+                  onChange={handleInputChange}
+                  value={inputs.base_url}
+                  autoComplete='new-password'
+                />
+              </Form.Field>
+            )
+          }
           {
             batch ? <Form.Field>
               <Form.TextArea

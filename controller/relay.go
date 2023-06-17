@@ -19,17 +19,26 @@ type Message struct {
 	Name    *string `json:"name,omitempty"`
 }
 
+const (
+	RelayModeUnknown = iota
+	RelayModeChatCompletions
+	RelayModeCompletions
+	RelayModeEmbeddings
+	RelayModeModeration
+)
+
 // https://platform.openai.com/docs/api-reference/chat
 
 type GeneralOpenAIRequest struct {
 	Model       string    `json:"model"`
 	Messages    []Message `json:"messages"`
-	Prompt      string    `json:"prompt"`
+	Prompt      any       `json:"prompt"`
 	Stream      bool      `json:"stream"`
 	MaxTokens   int       `json:"max_tokens"`
 	Temperature float64   `json:"temperature"`
 	TopP        float64   `json:"top_p"`
 	N           int       `json:"n"`
+	Input       any       `json:"input"`
 }
 
 type ChatRequest struct {
@@ -56,7 +65,7 @@ type OpenAIError struct {
 	Message string `json:"message"`
 	Type    string `json:"type"`
 	Param   string `json:"param"`
-	Code    string `json:"code"`
+	Code    any    `json:"code"`
 }
 
 type OpenAIErrorWithStatusCode struct {
@@ -69,7 +78,7 @@ type TextResponse struct {
 	Error OpenAIError `json:"error"`
 }
 
-type StreamResponse struct {
+type ChatCompletionsStreamResponse struct {
 	Choices []struct {
 		Delta struct {
 			Content string `json:"content"`
@@ -78,11 +87,28 @@ type StreamResponse struct {
 	} `json:"choices"`
 }
 
+type CompletionsStreamResponse struct {
+	Choices []struct {
+		Text         string `json:"text"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
+}
+
 func Relay(c *gin.Context) {
-	err := relayHelper(c)
+	relayMode := RelayModeUnknown
+	if strings.HasPrefix(c.Request.URL.Path, "/v1/chat/completions") {
+		relayMode = RelayModeChatCompletions
+	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/completions") {
+		relayMode = RelayModeCompletions
+	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/embeddings") {
+		relayMode = RelayModeEmbeddings
+	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/moderations") {
+		relayMode = RelayModeModeration
+	}
+	err := relayHelper(c, relayMode)
 	if err != nil {
 		if err.StatusCode == http.StatusTooManyRequests {
-			err.OpenAIError.Message = "负载已满，请稍后再试，或升级账户以提升服务质量。"
+			err.OpenAIError.Message = "当前分组负载已饱和，请稍后再试，或升级账户以提升服务质量。"
 		}
 		c.JSON(err.StatusCode, gin.H{
 			"error": err.OpenAIError,
@@ -110,31 +136,29 @@ func errorWrapper(err error, code string, statusCode int) *OpenAIErrorWithStatus
 	}
 }
 
-func relayHelper(c *gin.Context) *OpenAIErrorWithStatusCode {
+func relayHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 	channelType := c.GetInt("channel")
 	tokenId := c.GetInt("token_id")
 	consumeQuota := c.GetBool("consume_quota")
+	group := c.GetString("group")
 	var textRequest GeneralOpenAIRequest
 	if consumeQuota || channelType == common.ChannelTypeAzure || channelType == common.ChannelTypePaLM {
-		requestBody, err := io.ReadAll(c.Request.Body)
+		err := common.UnmarshalBodyReusable(c, &textRequest)
 		if err != nil {
-			return errorWrapper(err, "read_request_body_failed", http.StatusBadRequest)
+			return errorWrapper(err, "bind_request_body_failed", http.StatusBadRequest)
 		}
-		err = c.Request.Body.Close()
-		if err != nil {
-			return errorWrapper(err, "close_request_body_failed", http.StatusBadRequest)
-		}
-		err = json.Unmarshal(requestBody, &textRequest)
-		if err != nil {
-			return errorWrapper(err, "unmarshal_request_body_failed", http.StatusBadRequest)
-		}
-		// Reset request body
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+	}
+	if relayMode == RelayModeModeration && textRequest.Model == "" {
+		textRequest.Model = "text-moderation-latest"
 	}
 	baseURL := common.ChannelBaseURLs[channelType]
 	requestURL := c.Request.URL.String()
 	if channelType == common.ChannelTypeCustom {
 		baseURL = c.GetString("base_url")
+	} else if channelType == common.ChannelTypeOpenAI {
+		if c.GetString("base_url") != "" {
+			baseURL = c.GetString("base_url")
+		}
 	}
 	fullRequestURL := fmt.Sprintf("%s%s", baseURL, requestURL)
 	if channelType == common.ChannelTypeAzure {
@@ -153,18 +177,28 @@ func relayHelper(c *gin.Context) *OpenAIErrorWithStatusCode {
 		// https://github.com/songquanpeng/one-api/issues/67
 		model_ = strings.TrimSuffix(model_, "-0301")
 		model_ = strings.TrimSuffix(model_, "-0314")
+		model_ = strings.TrimSuffix(model_, "-0613")
 		fullRequestURL = fmt.Sprintf("%s/openai/deployments/%s/%s", baseURL, model_, task)
 	} else if channelType == common.ChannelTypePaLM {
 		err := relayPaLM(textRequest, c)
 		return err
 	}
-
-	promptTokens := countTokenMessages(textRequest.Messages, textRequest.Model)
+	var promptTokens int
+	switch relayMode {
+	case RelayModeChatCompletions:
+		promptTokens = countTokenMessages(textRequest.Messages, textRequest.Model)
+	case RelayModeCompletions:
+		promptTokens = countTokenInput(textRequest.Prompt, textRequest.Model)
+	case RelayModeModeration:
+		promptTokens = countTokenInput(textRequest.Input, textRequest.Model)
+	}
 	preConsumedTokens := common.PreConsumedQuota
 	if textRequest.MaxTokens != 0 {
 		preConsumedTokens = promptTokens + textRequest.MaxTokens
 	}
-	ratio := common.GetModelRatio(textRequest.Model)
+	modelRatio := common.GetModelRatio(textRequest.Model)
+	groupRatio := common.GetGroupRatio(group)
+	ratio := modelRatio * groupRatio
 	preConsumedQuota := int(float64(preConsumedTokens) * ratio)
 	if consumeQuota {
 		err := model.PreConsumeTokenQuota(tokenId, preConsumedQuota)
@@ -206,23 +240,31 @@ func relayHelper(c *gin.Context) *OpenAIErrorWithStatusCode {
 	defer func() {
 		if consumeQuota {
 			quota := 0
-			usingGPT4 := strings.HasPrefix(textRequest.Model, "gpt-4")
-			completionRatio := 1
-			if usingGPT4 {
+			completionRatio := 1.34 // default for gpt-3
+			if strings.HasPrefix(textRequest.Model, "gpt-4") {
 				completionRatio = 2
 			}
 			if isStream {
 				responseTokens := countTokenText(streamResponseText, textRequest.Model)
-				quota = promptTokens + responseTokens*completionRatio
+				quota = promptTokens + int(float64(responseTokens)*completionRatio)
 			} else {
-				quota = textResponse.Usage.PromptTokens + textResponse.Usage.CompletionTokens*completionRatio
+				quota = textResponse.Usage.PromptTokens + int(float64(textResponse.Usage.CompletionTokens)*completionRatio)
 			}
 			quota = int(float64(quota) * ratio)
+			if ratio != 0 && quota <= 0 {
+				quota = 1
+			}
 			quotaDelta := quota - preConsumedQuota
 			err := model.PostConsumeTokenQuota(tokenId, quotaDelta)
 			if err != nil {
 				common.SysError("Error consuming token remain quota: " + err.Error())
 			}
+			tokenName := c.GetString("token_name")
+			userId := c.GetInt("id")
+			model.RecordLog(userId, model.LogTypeConsume, fmt.Sprintf("通过令牌「%s」使用模型 %s 消耗 %d 点额度（模型倍率 %.2f，分组倍率 %.2f）", tokenName, textRequest.Model, quota, modelRatio, groupRatio))
+			model.UpdateUserUsedQuotaAndRequestCount(userId, quota)
+			channelId := c.GetInt("channel_id")
+			model.UpdateChannelUsedQuota(channelId, quota)
 		}
 	}()
 
@@ -255,14 +297,27 @@ func relayHelper(c *gin.Context) *OpenAIErrorWithStatusCode {
 				dataChan <- data
 				data = data[6:]
 				if !strings.HasPrefix(data, "[DONE]") {
-					var streamResponse StreamResponse
-					err = json.Unmarshal([]byte(data), &streamResponse)
-					if err != nil {
-						common.SysError("Error unmarshalling stream response: " + err.Error())
-						return
-					}
-					for _, choice := range streamResponse.Choices {
-						streamResponseText += choice.Delta.Content
+					switch relayMode {
+					case RelayModeChatCompletions:
+						var streamResponse ChatCompletionsStreamResponse
+						err = json.Unmarshal([]byte(data), &streamResponse)
+						if err != nil {
+							common.SysError("Error unmarshalling stream response: " + err.Error())
+							return
+						}
+						for _, choice := range streamResponse.Choices {
+							streamResponseText += choice.Delta.Content
+						}
+					case RelayModeCompletions:
+						var streamResponse CompletionsStreamResponse
+						err = json.Unmarshal([]byte(data), &streamResponse)
+						if err != nil {
+							common.SysError("Error unmarshalling stream response: " + err.Error())
+							return
+						}
+						for _, choice := range streamResponse.Choices {
+							streamResponseText += choice.Text
+						}
 					}
 				}
 			}
@@ -339,6 +394,18 @@ func RelayNotImplemented(c *gin.Context) {
 		Type:    "one_api_error",
 		Param:   "",
 		Code:    "api_not_implemented",
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"error": err,
+	})
+}
+
+func RelayNotFound(c *gin.Context) {
+	err := OpenAIError{
+		Message: fmt.Sprintf("API not found: %s:%s", c.Request.Method, c.Request.URL.Path),
+		Type:    "one_api_error",
+		Param:   "",
+		Code:    "api_not_found",
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"error": err,

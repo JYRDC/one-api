@@ -1,7 +1,7 @@
 package model
 
 import (
-	_ "gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"one-api/common"
 )
 
@@ -19,7 +19,9 @@ type Channel struct {
 	Other              string  `json:"other"`
 	Balance            float64 `json:"balance"` // in USD
 	BalanceUpdatedTime int64   `json:"balance_updated_time" gorm:"bigint"`
-	Models             string  `json:"models" `
+	Models             string  `json:"models"`
+	Group              string  `json:"group" gorm:"type:varchar(32);default:'default'"`
+	UsedQuota          int64   `json:"used_quota" gorm:"bigint;default:0"`
 }
 
 func GetAllChannels(startIdx int, num int, selectAll bool) ([]*Channel, error) {
@@ -49,14 +51,13 @@ func GetChannelById(id int, selectAll bool) (*Channel, error) {
 	return &channel, err
 }
 
-func GetRandomChannel(model string) (*Channel, error) {
-	// TODO: consider weight
+func GetRandomChannel() (*Channel, error) {
 	channel := Channel{}
 	var err error = nil
 	if common.UsingSQLite {
-		err = DB.Where("status = ? and (models = ? or models like ? or models like ? or models like ?)", common.ChannelStatusEnabled, model, model+",%", "%,"+model, "%,"+model+",%").Order("RANDOM()").Limit(1).First(&channel).Error
+		err = DB.Where("status = ? and `group` = ?", common.ChannelStatusEnabled, "default").Order("RANDOM()").Limit(1).First(&channel).Error
 	} else {
-		err = DB.Where("status = ? and (models = ? or models like ? or models like ? or models like ?)", common.ChannelStatusEnabled, model, model+",%", "%,"+model, "%,"+model+",%").Order("RAND()").Limit(1).First(&channel).Error
+		err = DB.Where("status = ? and `group` = ?", common.ChannelStatusEnabled, "default").Order("RAND()").Limit(1).First(&channel).Error
 	}
 	return &channel, err
 }
@@ -64,18 +65,36 @@ func GetRandomChannel(model string) (*Channel, error) {
 func BatchInsertChannels(channels []Channel) error {
 	var err error
 	err = DB.Create(&channels).Error
-	return err
+	if err != nil {
+		return err
+	}
+	for _, channel_ := range channels {
+		err = channel_.AddAbilities()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (channel *Channel) Insert() error {
 	var err error
 	err = DB.Create(channel).Error
+	if err != nil {
+		return err
+	}
+	err = channel.AddAbilities()
 	return err
 }
 
 func (channel *Channel) Update() error {
 	var err error
 	err = DB.Model(channel).Updates(channel).Error
+	if err != nil {
+		return err
+	}
+	DB.Model(channel).First(channel, "id = ?", channel.Id)
+	err = channel.UpdateAbilities()
 	return err
 }
 
@@ -102,12 +121,27 @@ func (channel *Channel) UpdateBalance(balance float64) {
 func (channel *Channel) Delete() error {
 	var err error
 	err = DB.Delete(channel).Error
+	if err != nil {
+		return err
+	}
+	err = channel.DeleteAbilities()
 	return err
 }
 
 func UpdateChannelStatusById(id int, status int) {
-	err := DB.Model(&Channel{}).Where("id = ?", id).Update("status", status).Error
+	err := UpdateAbilityStatus(id, status == common.ChannelStatusEnabled)
+	if err != nil {
+		common.SysError("failed to update ability status: " + err.Error())
+	}
+	err = DB.Model(&Channel{}).Where("id = ?", id).Update("status", status).Error
 	if err != nil {
 		common.SysError("failed to update channel status: " + err.Error())
+	}
+}
+
+func UpdateChannelUsedQuota(id int, quota int) {
+	err := DB.Model(&Channel{}).Where("id = ?", id).Update("used_quota", gorm.Expr("used_quota + ?", quota)).Error
+	if err != nil {
+		common.SysError("failed to update channel used quota: " + err.Error())
 	}
 }

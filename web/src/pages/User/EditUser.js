@@ -15,11 +15,25 @@ const EditUser = () => {
     wechat_id: '',
     email: '',
     quota: 0,
+    group: 'default'
   });
-  const { username, display_name, password, github_id, wechat_id, email, quota } =
+  const [groupOptions, setGroupOptions] = useState([]);
+  const { username, display_name, password, github_id, wechat_id, email, quota, group } =
     inputs;
   const handleInputChange = (e, { name, value }) => {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
+  };
+  const fetchGroups = async () => {
+    try {
+      let res = await API.get(`/api/group/`);
+      setGroupOptions(res.data.data.map((group) => ({
+        key: group,
+        text: group,
+        value: group,
+      })));
+    } catch (error) {
+      showError(error.message);
+    }
   };
 
   const loadUser = async () => {
@@ -40,6 +54,9 @@ const EditUser = () => {
   };
   useEffect(() => {
     loadUser().then();
+    if (userId) {
+      fetchGroups().then();
+    }
   }, []);
 
   const submit = async () => {
@@ -98,7 +115,23 @@ const EditUser = () => {
             />
           </Form.Field>
           {
-            userId && (
+            userId && <>
+              <Form.Field>
+                <Form.Dropdown
+                  label='分组'
+                  placeholder={'请选择分组'}
+                  name='group'
+                  fluid
+                  search
+                  selection
+                  allowAdditions
+                  additionLabel={'请在系统设置页面编辑分组倍率以添加新的分组：'}
+                  onChange={handleInputChange}
+                  value={inputs.group}
+                  autoComplete='new-password'
+                  options={groupOptions}
+                />
+              </Form.Field>
               <Form.Field>
                 <Form.Input
                   label='剩余额度'
@@ -110,7 +143,7 @@ const EditUser = () => {
                   autoComplete='new-password'
                 />
               </Form.Field>
-            )
+            </>
           }
           <Form.Field>
             <Form.Input

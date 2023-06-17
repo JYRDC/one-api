@@ -2,7 +2,7 @@ package model
 
 import (
 	"errors"
-	_ "gorm.io/driver/sqlite"
+	"fmt"
 	"one-api/common"
 )
 
@@ -66,6 +66,7 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if err != nil {
 			common.SysError("更新兑换码状态失败：" + err.Error())
 		}
+		RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %d 点额度", redemption.Quota))
 	}()
 	return redemption.Quota, nil
 }
@@ -84,7 +85,7 @@ func (redemption *Redemption) SelectUpdate() error {
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (redemption *Redemption) Update() error {
 	var err error
-	err = DB.Model(redemption).Select("name", "status", "redeemed_time").Updates(redemption).Error
+	err = DB.Model(redemption).Select("name", "status", "quota", "redeemed_time").Updates(redemption).Error
 	return err
 }
 

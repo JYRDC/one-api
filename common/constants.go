@@ -1,9 +1,10 @@
 package common
 
 import (
-	"github.com/google/uuid"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var StartTime = time.Now().Unix() // unit: second
@@ -25,6 +26,7 @@ var OptionMap map[string]string
 var OptionMapRWMutex sync.RWMutex
 
 var ItemsPerPage = 10
+var MaxRecentItems = 100
 
 var PasswordLoginEnabled = true
 var PasswordRegisterEnabled = true
@@ -33,6 +35,8 @@ var GitHubOAuthEnabled = false
 var WeChatAuthEnabled = false
 var TurnstileCheckEnabled = false
 var RegisterEnabled = true
+
+var LogConsumeEnabled = true
 
 var SMTPServer = "smtp.qq.com"
 var SMTPPort = 587
@@ -130,19 +134,21 @@ const (
 	ChannelTypeAILS      = 9
 	ChannelTypeAIProxy   = 10
 	ChannelTypePaLM      = 11
+	ChannelTypeAPI2GPT = 12
 )
 
 var ChannelBaseURLs = []string{
-	"",                            // 0
-	"https://api.openai.com",      // 1
-	"https://oa.api2d.net",        // 2
-	"",                            // 3
-	"https://api.openai-asia.com", // 4
-	"https://api.openai-sb.com",   // 5
-	"https://api.openaimax.com",   // 6
-	"https://api.ohmygpt.com",     // 7
-	"",                            // 8
-	"https://api.caipacity.com",   // 9
-	"https://api.aiproxy.io",      // 10
-	"",                            // 11
+	"",                             // 0
+	"https://api.openai.com",       // 1
+	"https://oa.api2d.net",         // 2
+	"",                             // 3
+	"https://api.openai-proxy.org", // 4
+	"https://api.openai-sb.com",    // 5
+	"https://api.openaimax.com",    // 6
+	"https://api.ohmygpt.com",      // 7
+	"",                             // 8
+	"https://api.caipacity.com",    // 9
+	"https://api.aiproxy.io",       // 10
+	"",                             // 11
+	"https://api.api2gpt.com",      // 12
 }
