@@ -31,7 +31,7 @@ var MaxRecentItems = 100
 
 var PasswordLoginEnabled = true
 var PasswordRegisterEnabled = true
-var EmailVerificationEnabled = false
+var EmailVerificationEnabled = true
 var GitHubOAuthEnabled = false
 var WeChatAuthEnabled = false
 var TurnstileCheckEnabled = false
