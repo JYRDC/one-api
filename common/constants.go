@@ -14,7 +14,7 @@ var ServerAddress = "http://localhost:3000"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
-var ChatLink = "https://aichat.jingyan.live"
+var ChatLink = "https://aichat.jingyan.live/chat/share?shareId=649040dd8767f2293b693aae"
 
 var UsingSQLite = false
 
