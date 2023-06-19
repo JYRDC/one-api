@@ -9,11 +9,12 @@ import (
 
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
-var SystemName = "One API"
+var SystemName = "JY API"
 var ServerAddress = "http://localhost:3000"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
+var ChatLink = ""
 
 var UsingSQLite = false
 
@@ -30,7 +31,7 @@ var MaxRecentItems = 100
 
 var PasswordLoginEnabled = true
 var PasswordRegisterEnabled = true
-var EmailVerificationEnabled = true
+var EmailVerificationEnabled = false
 var GitHubOAuthEnabled = false
 var WeChatAuthEnabled = false
 var TurnstileCheckEnabled = false
@@ -55,6 +56,8 @@ var TurnstileSiteKey = ""
 var TurnstileSecretKey = ""
 
 var QuotaForNewUser = 0
+var QuotaForInviter = 0
+var QuotaForInvitee = 0
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var QuotaRemindThreshold = 1000
@@ -134,7 +137,7 @@ const (
 	ChannelTypeAILS      = 9
 	ChannelTypeAIProxy   = 10
 	ChannelTypePaLM      = 11
-	ChannelTypeAPI2GPT = 12
+	ChannelTypeAPI2GPT   = 12
 )
 
 var ChannelBaseURLs = []string{

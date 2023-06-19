@@ -40,6 +40,8 @@ _✨ All in one 的 OpenAI 接口，整合各种 API 访问方式，开箱即用
   <a href="https://openai.justsong.cn/">在线演示</a>
   ·
   <a href="https://github.com/songquanpeng/one-api#常见问题">常见问题</a>
+  ·
+  <a href="https://iamazing.cn/page/reward">赞赏支持</a>
 </p>
 
 > **Note**：使用 Docker 拉取的最新镜像可能是 `alpha` 版本，如果追求稳定性请手动指定版本。
@@ -50,12 +52,12 @@ _✨ All in one 的 OpenAI 接口，整合各种 API 访问方式，开箱即用
 1. 支持多种 API 访问渠道，欢迎 PR 或提 issue 添加更多渠道：
    + [x] OpenAI 官方通道（支持配置代理）
    + [x] **Azure OpenAI API**
+   + [x] [OpenAI-SB](https://openai-sb.com)
    + [x] [API2D](https://api2d.com/r/197971)
    + [x] [OhMyGPT](https://aigptx.top?aff=uFpUl2Kf)
    + [x] [AI Proxy](https://aiproxy.io/?i=OneAPI) （邀请码：`OneAPI`）
-   + [x] [OpenAI-SB](https://openai-sb.com)
    + [x] [API2GPT](http://console.api2gpt.com/m/00002S)
-   + [x] [CloseAI](https://console.openai-asia.com/r/2412)
+   + [x] [CloseAI](https://console.closeai-asia.com/r/2412)
    + [x] [AI.LS](https://ai.ls)
    + [x] [OpenAI Max](https://openaimax.com)
    + [x] 自定义渠道：例如各种未收录的第三方代理服务
@@ -68,17 +70,18 @@ _✨ All in one 的 OpenAI 接口，整合各种 API 访问方式，开箱即用
 8. 支持**用户分组**以及**渠道分组**，支持为不同分组设置不同的倍率。
 9. 支持渠道**设置模型列表**。
 10. 支持**查看额度明细**。
-11. 支持发布公告，设置充值链接，设置新用户初始额度。
-12. 支持丰富的**自定义**设置，
-   1. 支持自定义系统名称，logo 以及页脚。
-   2. 支持自定义首页和关于页面，可以选择使用 HTML & Markdown 代码进行自定义，或者使用一个单独的网页通过 iframe 嵌入。
-13. 支持通过系统访问令牌访问管理 API。
-14. 支持 Cloudflare Turnstile 用户校验。
-15. 支持用户管理，支持**多种用户登录注册方式**：
+11. 支持**用户邀请奖励**。
+12. 支持发布公告，设置充值链接，设置新用户初始额度。
+13. 支持丰富的**自定义**设置，
+    1. 支持自定义系统名称，logo 以及页脚。
+    2. 支持自定义首页和关于页面，可以选择使用 HTML & Markdown 代码进行自定义，或者使用一个单独的网页通过 iframe 嵌入。
+14. 支持通过系统访问令牌访问管理 API。
+15. 支持 Cloudflare Turnstile 用户校验。
+16. 支持用户管理，支持**多种用户登录注册方式**：
     + 邮箱登录注册以及通过邮箱进行密码重置。
     + [GitHub 开放授权](https://github.com/settings/applications/new)。
     + 微信公众号授权（需要额外部署 [WeChat Server](https://github.com/songquanpeng/wechat-server)）。
-16. 未来其他大模型开放 API 后，将第一时间支持，并将其封装成同样的 API 访问方式。
+17. 未来其他大模型开放 API 后，将第一时间支持，并将其封装成同样的 API 访问方式。
 
 ## 部署
 ### 基于 Docker 进行部署
@@ -153,8 +156,15 @@ sudo service nginx restart
 
 环境变量的具体使用方法详见[此处](#环境变量)。
 
+### 宝塔部署教程
+
+详见 [#175](https://github.com/songquanpeng/one-api/issues/175)。
+
+如果部署后访问出现空白页面，详见 [#97](https://github.com/songquanpeng/one-api/issues/97)。
+
 ### 部署第三方服务配合 One API 使用
 > 欢迎 PR 添加更多示例。
+
 #### ChatGPT Next Web
 项目主页：https://github.com/Yidadaa/ChatGPT-Next-Web
 
@@ -179,6 +189,7 @@ docker run --name chatgpt-web -d -p 3002:3002 -e OPENAI_API_BASE_URL=https://ope
 <div>
 
 > Zeabur 的服务器在国外，自动解决了网络的问题，同时免费的额度也足够个人使用。
+
 1. 首先 fork 一份代码。
 2. 进入 [Zeabur](https://zeabur.com/)，登录，进入控制台。
 3. 新建一个 Project，在 Service -> Add Service 选择 Marketplace，选择 MySQL，并记下连接参数（用户名、密码、地址、端口）。
@@ -228,7 +239,7 @@ graph LR
 2. `SESSION_SECRET`：设置之后将使用固定的会话密钥，这样系统重新启动后已登录用户的 cookie 将依旧有效。
    + 例子：`SESSION_SECRET=random_string`
 3. `SQL_DSN`：设置之后将使用指定数据库而非 SQLite，请使用 MySQL 8.0 版本。
-   + 例子：`SQL_DSN=root:123456@tcp(localhost:3306)/one-api`
+   + 例子：`SQL_DSN=root:123456@tcp(localhost:3306)/oneapi`
 4. `FRONTEND_BASE_URL`：设置之后将使用指定的前端地址，而非后端地址。
    + 例子：`FRONTEND_BASE_URL=https://openai.justsong.cn`
 5. `SYNC_FREQUENCY`：设置之后将定期与数据库同步配置，单位为秒，未设置则不进行同步。
@@ -252,17 +263,22 @@ https://openai.justsong.cn
 ![token](https://user-images.githubusercontent.com/39998050/233837971-dab488b7-6d96-43af-b640-a168e8d1c9bf.png)
 
 ## 常见问题
-1. 账户额度足够为什么提示额度不足？
+1. 额度是什么？怎么计算的？One API 的额度计算有问题？
+   + 额度 = token * 倍率
+   + 倍率包括分组的倍率，以及补全的倍率。
+   + 如果是非流模式，官方接口会返回消耗的总 token，但是你要注意提示和补全的消耗额度不一样。
+2. 账户额度足够为什么提示额度不足？
    + 请检查你的令牌额度是否足够，这个和账户额度是分开的。
    + 令牌额度仅供用户设置最大使用量，用户可自由设置。
-2. 宝塔部署后访问出现空白页面？
-   + 自动配置的问题，详见[#97](https://github.com/songquanpeng/one-api/issues/97)。
 3. 提示无可用渠道？
    + 请检查的用户分组和渠道分组设置。
    + 以及渠道的模型设置。
+4. 渠道测试报错：`invalid character '<' looking for beginning of value`
+   + 这是因为返回值不是合法的 JSON，而是一个 HTML 页面。
+   + 大概率是你的部署站的 IP 或代理的节点被 CloudFlare 封禁了。
 
 ## 注意
-本项目为开源项目，请在遵循 OpenAI 的[使用条款](https://openai.com/policies/terms-of-use)以及法律法规的情况下使用，不得用于非法用途。
+本项目为开源项目，请在遵循 OpenAI 的[使用条款](https://openai.com/policies/terms-of-use)以及**法律法规**的情况下使用，不得用于非法用途。
 
 本项目使用 MIT 协议进行开源，请以某种方式保留 One API 的版权信息。
 
