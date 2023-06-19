@@ -52,7 +52,7 @@ let headerButtons = [
     icon: 'setting'
   },
   {
-    name: '关于',
+    name: '应用',
     to: '/about',
     icon: 'info circle'
   }
