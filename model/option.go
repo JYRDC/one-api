@@ -203,6 +203,5 @@ func updateOptionMap(key string, value string) (err error) {
 	case "QuotaPerUnit":
 		common.QuotaPerUnit, _ = strconv.ParseFloat(value, 64)
 	}
-	}
 	return err
 }
