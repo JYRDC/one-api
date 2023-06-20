@@ -15,6 +15,8 @@ var Footer = ""
 var Logo = ""
 var TopUpLink = ""
 var ChatLink = "https://aichat.jingyan.live/chat/share?shareId=649040dd8767f2293b693aae"
+var QuotaPerUnit = 500 * 1000.0 // $0.002 / 1K tokens
+var DisplayInCurrencyEnabled = false
 
 var UsingSQLite = false
 
