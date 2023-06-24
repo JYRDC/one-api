@@ -112,7 +112,7 @@ func AddToken(c *gin.Context) {
 	if len(token.Name) == 0 || len(token.Name) > 20 {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": "令牌名称长度必须在1-20之间",
+			"message": "密钥名称长度必须在1-20之间",
 		})
 		return
 	}
@@ -183,14 +183,14 @@ func UpdateToken(c *gin.Context) {
 		if cleanToken.Status == common.TokenStatusExpired && cleanToken.ExpiredTime <= common.GetTimestamp() {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": "令牌已过期，无法启用，请先修改令牌过期时间",
+				"message": "密钥已过期，无法启用，请先修改密钥过期时间",
 			})
 			return
 		}
 		if cleanToken.Status == common.TokenStatusExhausted && cleanToken.RemainQuota <= 0 && !cleanToken.UnlimitedQuota {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": "令牌可用额度已用尽，无法启用，请先修改令牌剩余额度，或者设置为无限额度",
+				"message": "密钥可用额度已用尽，无法启用，请先修改密钥剩余额度，或者设置为无限额度",
 			})
 			return
 		}

@@ -192,7 +192,7 @@ const LogsTable = () => {
                             onChange={handleInputChange} />
               )
             }
-            <Form.Input fluid label={'令牌名称'} width={isAdminUser ? 2 : 3} value={token_name}
+            <Form.Input fluid label={'密钥名称'} width={isAdminUser ? 2 : 3} value={token_name}
                         placeholder={'可选值'} name='token_name' onChange={handleInputChange} />
             <Form.Input fluid label='模型名称' width={isAdminUser ? 2 : 3} value={model_name} placeholder='可选值'
                         name='model_name'
@@ -236,7 +236,7 @@ const LogsTable = () => {
                 }}
                 width={1}
               >
-                令牌
+                密钥
               </Table.HeaderCell>
               <Table.HeaderCell
                 style={{ cursor: 'pointer' }}
