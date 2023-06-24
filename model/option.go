@@ -36,6 +36,7 @@ func InitOptionMap() {
 	common.OptionMap["AutomaticDisableChannelEnabled"] = strconv.FormatBool(common.AutomaticDisableChannelEnabled)
 	common.OptionMap["LogConsumeEnabled"] = strconv.FormatBool(common.LogConsumeEnabled)
 	common.OptionMap["DisplayInCurrencyEnabled"] = strconv.FormatBool(common.DisplayInCurrencyEnabled)
+	common.OptionMap["DisplayTokenStatEnabled"] = strconv.FormatBool(common.DisplayTokenStatEnabled)
 	common.OptionMap["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
 	common.OptionMap["SMTPServer"] = ""
 	common.OptionMap["SMTPFrom"] = ""
@@ -75,7 +76,7 @@ func loadOptionsFromDatabase() {
 	for _, option := range options {
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
-			common.SysError("Failed to update option map: " + err.Error())
+			common.SysError("failed to update option map: " + err.Error())
 		}
 	}
 }
@@ -83,7 +84,7 @@ func loadOptionsFromDatabase() {
 func SyncOptions(frequency int) {
 	for {
 		time.Sleep(time.Duration(frequency) * time.Second)
-		common.SysLog("Syncing options from database")
+		common.SysLog("syncing options from database")
 		loadOptionsFromDatabase()
 	}
 }
@@ -144,6 +145,8 @@ func updateOptionMap(key string, value string) (err error) {
 			common.LogConsumeEnabled = boolValue
 		case "DisplayInCurrencyEnabled":
 			common.DisplayInCurrencyEnabled = boolValue
+		case "DisplayTokenStatEnabled":
+			common.DisplayTokenStatEnabled = boolValue
 		}
 	}
 	switch key {

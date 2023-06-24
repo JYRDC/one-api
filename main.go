@@ -6,8 +6,8 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
-	"log"
 	"one-api/common"
+	"one-api/controller"
 	"one-api/middleware"
 	"one-api/model"
 	"one-api/router"
@@ -30,19 +30,19 @@ func main() {
 	// Initialize SQL Database
 	err := model.InitDB()
 	if err != nil {
-		common.FatalLog(err)
+		common.FatalLog("failed to initialize database: " + err.Error())
 	}
 	defer func() {
 		err := model.CloseDB()
 		if err != nil {
-			common.FatalLog(err)
+			common.FatalLog("failed to close database: " + err.Error())
 		}
 	}()
 
 	// Initialize Redis
 	err = common.InitRedisClient()
 	if err != nil {
-		common.FatalLog(err)
+		common.FatalLog("failed to initialize Redis: " + err.Error())
 	}
 
 	// Initialize options
@@ -53,12 +53,26 @@ func main() {
 	if os.Getenv("SYNC_FREQUENCY") != "" {
 		frequency, err := strconv.Atoi(os.Getenv("SYNC_FREQUENCY"))
 		if err != nil {
-			common.FatalLog(err)
+			common.FatalLog("failed to parse SYNC_FREQUENCY: " + err.Error())
 		}
 		go model.SyncOptions(frequency)
 		if common.RedisEnabled {
 			go model.SyncChannelCache(frequency)
 		}
+	}
+	if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" {
+		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_UPDATE_FREQUENCY"))
+		if err != nil {
+			common.FatalLog("failed to parse CHANNEL_UPDATE_FREQUENCY: " + err.Error())
+		}
+		go controller.AutomaticallyUpdateChannels(frequency)
+	}
+	if os.Getenv("CHANNEL_TEST_FREQUENCY") != "" {
+		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_TEST_FREQUENCY"))
+		if err != nil {
+			common.FatalLog("failed to parse CHANNEL_TEST_FREQUENCY: " + err.Error())
+		}
+		go controller.AutomaticallyTestChannels(frequency)
 	}
 
 	// Initialize HTTP server
@@ -84,6 +98,6 @@ func main() {
 	}
 	err = server.Run(":" + port)
 	if err != nil {
-		log.Println(err)
+		common.FatalLog("failed to start HTTP server: " + err.Error())
 	}
 }

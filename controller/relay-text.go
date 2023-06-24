@@ -16,6 +16,7 @@ import (
 func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 	channelType := c.GetInt("channel")
 	tokenId := c.GetInt("token_id")
+	userId := c.GetInt("id")
 	consumeQuota := c.GetBool("consume_quota")
 	group := c.GetString("group")
 	var textRequest GeneralOpenAIRequest
@@ -30,12 +31,8 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 	}
 	baseURL := common.ChannelBaseURLs[channelType]
 	requestURL := c.Request.URL.String()
-	if channelType == common.ChannelTypeCustom {
+	if c.GetString("base_url") != "" {
 		baseURL = c.GetString("base_url")
-	} else if channelType == common.ChannelTypeOpenAI {
-		if c.GetString("base_url") != "" {
-			baseURL = c.GetString("base_url")
-		}
 	}
 	fullRequestURL := fmt.Sprintf("%s%s", baseURL, requestURL)
 	if channelType == common.ChannelTypeAzure {
@@ -61,6 +58,7 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 		return err
 	}
 	var promptTokens int
+	var completionTokens int
 	switch relayMode {
 	case RelayModeChatCompletions:
 		promptTokens = countTokenMessages(textRequest.Messages, textRequest.Model)
@@ -77,15 +75,24 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 	groupRatio := common.GetGroupRatio(group)
 	ratio := modelRatio * groupRatio
 	preConsumedQuota := int(float64(preConsumedTokens) * ratio)
-	if consumeQuota {
+	userQuota, err := model.CacheGetUserQuota(userId)
+	if err != nil {
+		return errorWrapper(err, "get_user_quota_failed", http.StatusInternalServerError)
+	}
+	if userQuota > 10*preConsumedQuota {
+		// in this case, we do not pre-consume quota
+		// because the user has enough quota
+		preConsumedQuota = 0
+	}
+	if consumeQuota && preConsumedQuota > 0 {
 		err := model.PreConsumeTokenQuota(tokenId, preConsumedQuota)
 		if err != nil {
-			return errorWrapper(err, "pre_consume_token_quota_failed", http.StatusOK)
+			return errorWrapper(err, "pre_consume_token_quota_failed", http.StatusForbidden)
 		}
 	}
 	req, err := http.NewRequest(c.Request.Method, fullRequestURL, c.Request.Body)
 	if err != nil {
-		return errorWrapper(err, "new_request_failed", http.StatusOK)
+		return errorWrapper(err, "new_request_failed", http.StatusInternalServerError)
 	}
 	if channelType == common.ChannelTypeAzure {
 		key := c.Request.Header.Get("Authorization")
@@ -100,15 +107,15 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return errorWrapper(err, "do_request_failed", http.StatusOK)
+		return errorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
 	err = req.Body.Close()
 	if err != nil {
-		return errorWrapper(err, "close_request_body_failed", http.StatusOK)
+		return errorWrapper(err, "close_request_body_failed", http.StatusInternalServerError)
 	}
 	err = c.Request.Body.Close()
 	if err != nil {
-		return errorWrapper(err, "close_request_body_failed", http.StatusOK)
+		return errorWrapper(err, "close_request_body_failed", http.StatusInternalServerError)
 	}
 	var textResponse TextResponse
 	isStream := strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream")
@@ -117,16 +124,17 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 	defer func() {
 		if consumeQuota {
 			quota := 0
-			completionRatio := 1.34 // default for gpt-3
+			completionRatio := 1.333333 // default for gpt-3
 			if strings.HasPrefix(textRequest.Model, "gpt-4") {
 				completionRatio = 2
 			}
 			if isStream {
-				responseTokens := countTokenText(streamResponseText, textRequest.Model)
-				quota = promptTokens + int(float64(responseTokens)*completionRatio)
+				completionTokens = countTokenText(streamResponseText, textRequest.Model)
 			} else {
-				quota = textResponse.Usage.PromptTokens + int(float64(textResponse.Usage.CompletionTokens)*completionRatio)
+				promptTokens = textResponse.Usage.PromptTokens
+				completionTokens = textResponse.Usage.CompletionTokens
 			}
+			quota = promptTokens + int(float64(completionTokens)*completionRatio)
 			quota = int(float64(quota) * ratio)
 			if ratio != 0 && quota <= 0 {
 				quota = 1
@@ -134,11 +142,11 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 			quotaDelta := quota - preConsumedQuota
 			err := model.PostConsumeTokenQuota(tokenId, quotaDelta)
 			if err != nil {
-				common.SysError("Error consuming token remain quota: " + err.Error())
+				common.SysError("error consuming token remain quota: " + err.Error())
 			}
 			tokenName := c.GetString("token_name")
-			userId := c.GetInt("id")
-			model.RecordLog(userId, model.LogTypeConsume, fmt.Sprintf("通过令牌「%s」使用模型 %s 消耗 %s（模型倍率 %.2f，分组倍率 %.2f）", tokenName, textRequest.Model, common.LogQuota(quota), modelRatio, groupRatio))
+			logContent := fmt.Sprintf("模型倍率 %.2f，分组倍率 %.2f", modelRatio, groupRatio)
+			model.RecordConsumeLog(userId, promptTokens, completionTokens, textRequest.Model, tokenName, quota, logContent)
 			model.UpdateUserUsedQuotaAndRequestCount(userId, quota)
 			channelId := c.GetInt("channel_id")
 			model.UpdateChannelUsedQuota(channelId, quota)
@@ -168,7 +176,7 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 			for scanner.Scan() {
 				data := scanner.Text()
 				if len(data) < 6 { // must be something wrong!
-					common.SysError("Invalid stream response: " + data)
+					common.SysError("invalid stream response: " + data)
 					continue
 				}
 				dataChan <- data
@@ -179,7 +187,7 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 						var streamResponse ChatCompletionsStreamResponse
 						err = json.Unmarshal([]byte(data), &streamResponse)
 						if err != nil {
-							common.SysError("Error unmarshalling stream response: " + err.Error())
+							common.SysError("error unmarshalling stream response: " + err.Error())
 							return
 						}
 						for _, choice := range streamResponse.Choices {
@@ -189,7 +197,7 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 						var streamResponse CompletionsStreamResponse
 						err = json.Unmarshal([]byte(data), &streamResponse)
 						if err != nil {
-							common.SysError("Error unmarshalling stream response: " + err.Error())
+							common.SysError("error unmarshalling stream response: " + err.Error())
 							return
 						}
 						for _, choice := range streamResponse.Choices {
@@ -219,22 +227,22 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 		})
 		err = resp.Body.Close()
 		if err != nil {
-			return errorWrapper(err, "close_response_body_failed", http.StatusOK)
+			return errorWrapper(err, "close_response_body_failed", http.StatusInternalServerError)
 		}
 		return nil
 	} else {
 		if consumeQuota {
 			responseBody, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return errorWrapper(err, "read_response_body_failed", http.StatusOK)
+				return errorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
 			}
 			err = resp.Body.Close()
 			if err != nil {
-				return errorWrapper(err, "close_response_body_failed", http.StatusOK)
+				return errorWrapper(err, "close_response_body_failed", http.StatusInternalServerError)
 			}
 			err = json.Unmarshal(responseBody, &textResponse)
 			if err != nil {
-				return errorWrapper(err, "unmarshal_response_body_failed", http.StatusOK)
+				return errorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError)
 			}
 			if textResponse.Error.Type != "" {
 				return &OpenAIErrorWithStatusCode{
@@ -255,11 +263,11 @@ func relayTextHelper(c *gin.Context, relayMode int) *OpenAIErrorWithStatusCode {
 		c.Writer.WriteHeader(resp.StatusCode)
 		_, err = io.Copy(c.Writer, resp.Body)
 		if err != nil {
-			return errorWrapper(err, "copy_response_body_failed", http.StatusOK)
+			return errorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError)
 		}
 		err = resp.Body.Close()
 		if err != nil {
-			return errorWrapper(err, "close_response_body_failed", http.StatusOK)
+			return errorWrapper(err, "close_response_body_failed", http.StatusInternalServerError)
 		}
 		return nil
 	}

@@ -1,3 +1,8 @@
+<p align="right">
+   <strong>中文</strong> | <a href="./README.en.md">English</a>
+</p>
+
+
 <p align="center">
   <a href="https://github.com/songquanpeng/one-api"><img src="https://raw.githubusercontent.com/songquanpeng/one-api/main/web/public/logo.png" width="150" height="150" alt="one-api logo"></a>
 </p>
@@ -41,6 +46,8 @@ _✨ All in one 的 OpenAI 接口，整合各种 API 访问方式，开箱即用
   ·
   <a href="https://github.com/songquanpeng/one-api#常见问题">常见问题</a>
   ·
+  <a href="https://github.com/songquanpeng/one-api#相关项目">相关项目</a>
+  ·
   <a href="https://iamazing.cn/page/reward">赞赏支持</a>
 </p>
 
@@ -74,19 +81,19 @@ _✨ All in one 的 OpenAI 接口，整合各种 API 访问方式，开箱即用
 12. 支持以美元为单位显示额度。
 13. 支持发布公告，设置充值链接，设置新用户初始额度。
 14. 支持丰富的**自定义**设置，
-   1. 支持自定义系统名称，logo 以及页脚。
-   2. 支持自定义首页和关于页面，可以选择使用 HTML & Markdown 代码进行自定义，或者使用一个单独的网页通过 iframe 嵌入。
+    1. 支持自定义系统名称，logo 以及页脚。
+    2. 支持自定义首页和关于页面，可以选择使用 HTML & Markdown 代码进行自定义，或者使用一个单独的网页通过 iframe 嵌入。
 15. 支持通过系统访问令牌访问管理 API。
 16. 支持 Cloudflare Turnstile 用户校验。
 17. 支持用户管理，支持**多种用户登录注册方式**：
-   + 邮箱登录注册以及通过邮箱进行密码重置。
-   + [GitHub 开放授权](https://github.com/settings/applications/new)。
-   + 微信公众号授权（需要额外部署 [WeChat Server](https://github.com/songquanpeng/wechat-server)）。
+    + 邮箱登录注册以及通过邮箱进行密码重置。
+    + [GitHub 开放授权](https://github.com/settings/applications/new)。
+    + 微信公众号授权（需要额外部署 [WeChat Server](https://github.com/songquanpeng/wechat-server)）。
 18. 未来其他大模型开放 API 后，将第一时间支持，并将其封装成同样的 API 访问方式。
 
 ## 部署
 ### 基于 Docker 进行部署
-部署命令：`docker run --name one-api -d --restart always -p 3000:3000 -v /home/ubuntu/data/one-api:/data justsong/one-api`
+部署命令：`docker run --name one-api -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai -v /home/ubuntu/data/one-api:/data justsong/one-api`
 
 更新命令：`docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower -cR`
 
@@ -151,9 +158,12 @@ sudo service nginx restart
 
 ### 多机部署
 1. 所有服务器 `SESSION_SECRET` 设置一样的值。
-2. 必须设置 `SQL_DSN`，使用 MySQL 数据库而非 SQLite，请自行配置主备数据库同步。
-3. 所有从服务器必须设置 `SYNC_FREQUENCY`，以定期从数据库同步配置。
-4. 从服务器可以选择设置 `FRONTEND_BASE_URL`，以重定向页面请求到主服务器。
+2. 必须设置 `SQL_DSN`，使用 MySQL 数据库而非 SQLite，所有服务器连接同一个数据库。
+3. 所有从服务器必须设置 `NODE_TYPE` 为 `slave`。
+4. 设置 `SYNC_FREQUENCY` 后服务器将定期从数据库同步配置。
+5. 从服务器可以选择设置 `FRONTEND_BASE_URL`，以重定向页面请求到主服务器。
+6. 从服务器上**分别**装好 Redis，设置好 `REDIS_CONN_STRING`，这样可以做到在缓存未过期的情况下数据库零访问，可以减少延迟。
+7. 如果主服务器访问数据库延迟也比较高，则也需要启用 Redis，并设置 `SYNC_FREQUENCY`，以定期从数据库同步配置。
 
 环境变量的具体使用方法详见[此处](#环境变量)。
 
@@ -170,7 +180,7 @@ sudo service nginx restart
 项目主页：https://github.com/Yidadaa/ChatGPT-Next-Web
 
 ```bash
-docker run --name chat-next-web -d -p 3001:3000 -e BASE_URL=https://openai.justsong.cn yidadaa/chatgpt-next-web
+docker run --name chat-next-web -d -p 3001:3000 yidadaa/chatgpt-next-web
 ```
 
 注意修改端口号和 `BASE_URL`。
@@ -245,6 +255,14 @@ graph LR
    + 例子：`FRONTEND_BASE_URL=https://openai.justsong.cn`
 5. `SYNC_FREQUENCY`：设置之后将定期与数据库同步配置，单位为秒，未设置则不进行同步。
    + 例子：`SYNC_FREQUENCY=60`
+6. `NODE_TYPE`：设置之后将指定节点类型，可选值为 `master` 和 `slave`，未设置则默认为 `master`。
+   + 例子：`NODE_TYPE=slave`
+7. `CHANNEL_UPDATE_FREQUENCY`：设置之后将定期更新渠道余额，单位为分钟，未设置则不进行更新。
+   + 例子：`CHANNEL_UPDATE_FREQUENCY=1440`
+8. `CHANNEL_TEST_FREQUENCY`：设置之后将定期检查渠道，单位为分钟，未设置则不进行检查。
+   + 例子：`CHANNEL_TEST_FREQUENCY=1440`
+9. `REQUEST_INTERVAL`：批量更新渠道余额以及测试可用性时的请求间隔，单位为秒，默认无间隔。
+   + 例子：`POLLING_INTERVAL=5`
 
 ### 命令行参数
 1. `--port <port_number>`: 指定服务器监听的端口号，默认为 `3000`。
@@ -265,9 +283,9 @@ https://openai.justsong.cn
 
 ## 常见问题
 1. 额度是什么？怎么计算的？One API 的额度计算有问题？
-   + 额度 = token * 倍率
-   + 倍率包括分组的倍率，以及补全的倍率。
-   + 如果是非流模式，官方接口会返回消耗的总 token，但是你要注意提示和补全的消耗额度不一样。
+   + 额度 = 分组倍率 * 模型倍率 * （提示 token 数 + 补全 token 数 * 补全倍率）
+   + 其中补全倍率对于 GPT3.5 固定为 1.33，GPT4 为 2，与官方保持一致。
+   + 如果是非流模式，官方接口会返回消耗的总 token，但是你要注意提示和补全的消耗倍率不一样。
 2. 账户额度足够为什么提示额度不足？
    + 请检查你的令牌额度是否足够，这个和账户额度是分开的。
    + 令牌额度仅供用户设置最大使用量，用户可自由设置。
@@ -277,6 +295,12 @@ https://openai.justsong.cn
 4. 渠道测试报错：`invalid character '<' looking for beginning of value`
    + 这是因为返回值不是合法的 JSON，而是一个 HTML 页面。
    + 大概率是你的部署站的 IP 或代理的节点被 CloudFlare 封禁了。
+5. ChatGPT Next Web 报错：`Failed to fetch`
+   + 部署的时候不要设置 `BASE_URL`。
+   + 检查你的接口地址和 API Key 有没有填对。
+
+## 相关项目
+[FastGPT](https://github.com/c121914yu/FastGPT): 三分钟搭建 AI 知识库
 
 ## 注意
 本项目为开源项目，请在遵循 OpenAI 的[使用条款](https://openai.com/policies/terms-of-use)以及**法律法规**的情况下使用，不得用于非法用途。

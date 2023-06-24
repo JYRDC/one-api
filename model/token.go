@@ -18,6 +18,7 @@ type Token struct {
 	ExpiredTime    int64  `json:"expired_time" gorm:"bigint;default:-1"` // -1 means never expired
 	RemainQuota    int    `json:"remain_quota" gorm:"default:0"`
 	UnlimitedQuota bool   `json:"unlimited_quota" gorm:"default:false"`
+	UsedQuota      int    `json:"used_quota" gorm:"default:0"` // used quota
 }
 
 func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
@@ -34,39 +35,39 @@ func SearchUserTokens(userId int, keyword string) (tokens []*Token, err error) {
 
 func ValidateUserToken(key string) (token *Token, err error) {
 	if key == "" {
-		return nil, errors.New("未提供 token")
+		return nil, errors.New("未提供令牌")
 	}
 	token, err = CacheGetTokenByKey(key)
 	if err == nil {
 		if token.Status != common.TokenStatusEnabled {
-			return nil, errors.New("该 token 状态不可用")
+			return nil, errors.New("该令牌状态不可用")
 		}
 		if token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp() {
 			token.Status = common.TokenStatusExpired
 			err := token.SelectUpdate()
 			if err != nil {
-				common.SysError("更新 token 状态失败：" + err.Error())
+				common.SysError("failed to update token status" + err.Error())
 			}
-			return nil, errors.New("该 token 已过期")
+			return nil, errors.New("该令牌已过期")
 		}
 		if !token.UnlimitedQuota && token.RemainQuota <= 0 {
 			token.Status = common.TokenStatusExhausted
 			err := token.SelectUpdate()
 			if err != nil {
-				common.SysError("更新 token 状态失败：" + err.Error())
+				common.SysError("failed to update token status" + err.Error())
 			}
-			return nil, errors.New("该 token 额度已用尽")
+			return nil, errors.New("该令牌额度已用尽")
 		}
 		go func() {
 			token.AccessedTime = common.GetTimestamp()
 			err := token.SelectUpdate()
 			if err != nil {
-				common.SysError("更新 token 失败：" + err.Error())
+				common.SysError("failed to update token" + err.Error())
 			}
 		}()
 		return token, nil
 	}
-	return nil, errors.New("无效的 token")
+	return nil, errors.New("无效的令牌")
 }
 
 func GetTokenByIds(id int, userId int) (*Token, error) {
@@ -130,7 +131,12 @@ func IncreaseTokenQuota(id int, quota int) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
-	err = DB.Model(&Token{}).Where("id = ?", id).Update("remain_quota", gorm.Expr("remain_quota + ?", quota)).Error
+	err = DB.Model(&Token{}).Where("id = ?", id).Updates(
+		map[string]interface{}{
+			"remain_quota": gorm.Expr("remain_quota + ?", quota),
+			"used_quota":   gorm.Expr("used_quota - ?", quota),
+		},
+	).Error
 	return err
 }
 
@@ -138,7 +144,12 @@ func DecreaseTokenQuota(id int, quota int) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
-	err = DB.Model(&Token{}).Where("id = ?", id).Update("remain_quota", gorm.Expr("remain_quota - ?", quota)).Error
+	err = DB.Model(&Token{}).Where("id = ?", id).Updates(
+		map[string]interface{}{
+			"remain_quota": gorm.Expr("remain_quota - ?", quota),
+			"used_quota":   gorm.Expr("used_quota + ?", quota),
+		},
+	).Error
 	return err
 }
 
@@ -166,7 +177,7 @@ func PreConsumeTokenQuota(tokenId int, quota int) (err error) {
 		go func() {
 			email, err := GetUserEmail(token.UserId)
 			if err != nil {
-				common.SysError("获取用户邮箱失败：" + err.Error())
+				common.SysError("failed to fetch user email: " + err.Error())
 			}
 			prompt := "您的额度即将用尽"
 			if noMoreQuota {
@@ -177,7 +188,7 @@ func PreConsumeTokenQuota(tokenId int, quota int) (err error) {
 				err = common.SendEmail(prompt, email,
 					fmt.Sprintf("%s，当前剩余额度为 %d，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='%s'>%s</a>", prompt, userQuota, topUpLink, topUpLink))
 				if err != nil {
-					common.SysError("发送邮件失败：" + err.Error())
+					common.SysError("failed to send email" + err.Error())
 				}
 			}
 		}()

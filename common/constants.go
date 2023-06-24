@@ -1,6 +1,8 @@
 package common
 
 import (
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,7 +18,8 @@ var Logo = ""
 var TopUpLink = ""
 var ChatLink = "https://aichat.jingyan.live/chat/share?shareId=649040dd8767f2293b693aae"
 var QuotaPerUnit = 500 * 1000.0 // $0.002 / 1K tokens
-var DisplayInCurrencyEnabled = false
+var DisplayInCurrencyEnabled = true
+var DisplayTokenStatEnabled = true
 
 var UsingSQLite = false
 
@@ -66,6 +69,11 @@ var QuotaRemindThreshold = 1000
 var PreConsumedQuota = 500
 
 var RootUserEmail = ""
+
+var IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
+
+var requestInterval, _ = strconv.Atoi(os.Getenv("REQUEST_INTERVAL"))
+var RequestInterval = time.Duration(requestInterval) * time.Second
 
 const (
 	RoleGuestUser  = 0

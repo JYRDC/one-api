@@ -118,7 +118,7 @@ func Relay(c *gin.Context) {
 			"error": err.OpenAIError,
 		})
 		channelId := c.GetInt("channel_id")
-		common.SysError(fmt.Sprintf("Relay error (channel #%d): %s", channelId, err.Message))
+		common.SysError(fmt.Sprintf("relay error (channel #%d): %s", channelId, err.Message))
 		// https://platform.openai.com/docs/guides/error-codes/api-errors
 		if common.AutomaticDisableChannelEnabled && (err.Type == "insufficient_quota" || err.Code == "invalid_api_key") {
 			channelId := c.GetInt("channel_id")
@@ -135,7 +135,7 @@ func RelayNotImplemented(c *gin.Context) {
 		Param:   "",
 		Code:    "api_not_implemented",
 	}
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusNotImplemented, gin.H{
 		"error": err,
 	})
 }
@@ -147,7 +147,7 @@ func RelayNotFound(c *gin.Context) {
 		Param:   "",
 		Code:    "api_not_found",
 	}
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusNotFound, gin.H{
 		"error": err,
 	})
 }
