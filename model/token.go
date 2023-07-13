@@ -62,7 +62,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 //			token.AccessedTime = common.GetTimestamp()
 //			err := token.SelectUpdate()
 //			if err != nil {
-				common.SysError("failed to update token" + err.Error())
+// 				common.SysError("failed to update token" + err.Error())
 //			}
 //		}()
 		return token, nil
