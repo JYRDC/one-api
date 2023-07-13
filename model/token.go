@@ -58,14 +58,14 @@ func ValidateUserToken(key string) (token *Token, err error) {
 			}
 			return nil, errors.New("该密钥额度已用尽")
 		}
-		go func() {
-			token.AccessedTime = common.GetTimestamp()
-			err := token.SelectUpdate()
-			if err != nil {
+//		go func() {
+//			token.AccessedTime = common.GetTimestamp()
+//			err := token.SelectUpdate()
+//			if err != nil {
 				common.SysError("failed to update token" + err.Error())
-			}
-		}()
-		return token, nil
+//			}
+//		}()
+//		return token, nil
 	}
 	return nil, errors.New("无效的密钥")
 }
