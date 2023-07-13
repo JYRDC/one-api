@@ -65,7 +65,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 				common.SysError("failed to update token" + err.Error())
 //			}
 //		}()
-//		return token, nil
+		return token, nil
 	}
 	return nil, errors.New("无效的密钥")
 }
